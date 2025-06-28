@@ -1,30 +1,30 @@
-NAME ?= opensips
-OPENSIPS_VERSION ?= 3.4
-OPENSIPS_VERSION_MINOR ?=
-OPENSIPS_VERSION_REVISION ?=
-OPENSIPS_BUILD ?= releases
-OPENSIPS_COMPONENT ?=
-OPENSIPS_DOCKER_TAG ?= latest
-OPENSIPS_CLI ?= true
-OPENSIPS_EXTRA_MODULES ?=
-DOCKER_ARGS ?=
+# opensips 版本
+OPENSIPS_VERSION=3.5.6
 
-all: build start
+# 源码下载地址
+OPENSIPS_URL=https://download.opensips.org/opensips-$(OPENSIPS_VERSION).tar.gz
 
-.PHONY: build start
+# 镜像名
+IMAGE_FULL_NAME=wangduanduan/opensips:$(OPENSIPS_VERSION)
+
+# 额外需要构建的模块
+BUILD_MOD=db_mysql
+
 build:
 	docker build \
-		--no-cache \
-		--build-arg=OPENSIPS_BUILD=$(OPENSIPS_BUILD) \
+		--build-arg=OPENSIPS_URL=$(OPENSIPS_URL) \
 		--build-arg=OPENSIPS_VERSION=$(OPENSIPS_VERSION) \
-		--build-arg=OPENSIPS_VERSION_MINOR=$(OPENSIPS_VERSION_MINOR) \
-		--build-arg=OPENSIPS_VERSION_REVISION=$(OPENSIPS_VERSION_REVISION) \
-		--build-arg=OPENSIPS_CLI=${OPENSIPS_CLI} \
-		--build-arg=OPENSIPS_COMPONENT=${OPENSIPS_COMPONENT} \
-		--build-arg=OPENSIPS_EXTRA_MODULES="$(OPENSIPS_EXTRA_MODULES)" \
-		$(DOCKER_ARGS) \
-		--tag="opensips/opensips:$(OPENSIPS_DOCKER_TAG)" \
+		--build-arg=BUILD_MOD=$(BUILD_MOD) \
+		--progress=plain \
+		--tag="$(IMAGE_FULL_NAME)" \
 		.
 
-start:
-	docker run -d --name $(NAME) opensips/opensips:$(OPENSIPS_DOCKER_TAG)
+run:
+	-docker rm -f ops
+	docker run -d --name ops \
+	-v $$PWD/opensips:/usr/local/etc/opensips \
+	-v $$PWD/log:/var/log \
+	$(IMAGE_FULL_NAME) -m 1024 -M 64
+
+exec:
+	docker exec -it ops bash

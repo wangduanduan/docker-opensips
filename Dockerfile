@@ -1,46 +1,58 @@
-FROM debian:bullseye
-LABEL maintainer="Razvan Crainea <razvan@opensips.org>"
+FROM debian:12-slim AS builder
+LABEL maintainer="Eddie Wang <eddie0501@foxmail.com>"
 
 USER root
 
-# Set Environment Variables
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
-ARG OPENSIPS_VERSION=3.4
-ARG OPENSIPS_VERSION_MINOR
-ARG OPENSIPS_VERSION_REVISION=1
-ARG OPENSIPS_BUILD=releases
-ARG OPENSIPS_COMPONENT
+ARG OPENSIPS_URL
+ARG OPENSIPS_VERSION
+ARG BUILD_MOD
 
-#install basic components
-RUN apt-get -y update -qq && apt-get -y install gnupg2 ca-certificates
+COPY debian.sources /etc/apt/sources.list.d/
 
-#add keyserver, repository
-RUN apt-key adv --fetch-keys https://apt.opensips.org/pubkey.gpg
-RUN echo "deb https://apt.opensips.org bullseye \
-		$(test -z "${OPENSIPS_COMPONENT}" && \
-				echo ${OPENSIPS_VERSION}-${OPENSIPS_BUILD} || \
-				echo ${OPENSIPS_COMPONENT})" >/etc/apt/sources.list.d/opensips.list
+RUN apt-get update
 
-RUN apt-get -y update -qq && \
-    apt-get -y install \
-        opensips${OPENSIPS_VERSION_MINOR:+=$OPENSIPS_VERSION.$OPENSIPS_VERSION_MINOR-$OPENSIPS_VERSION_REVISION}
+ADD $OPENSIPS_URL /usr/local/src/
 
-ARG OPENSIPS_CLI=false
-RUN if [ ${OPENSIPS_CLI} = true ]; then \
-    echo "deb https://apt.opensips.org bullseye cli-nightly" >/etc/apt/sources.list.d/opensips-cli.list \
-    && apt-get -y update -qq && apt-get -y install opensips-cli \
-    ;fi
+RUN cd /usr/local/src/ && tar -zxvf opensips-${OPENSIPS_VERSION}.tar.gz
+WORKDIR /usr/local/src/
 
-ARG OPENSIPS_EXTRA_MODULES
-RUN if [ -n "${OPENSIPS_EXTRA_MODULES}" ]; then \
-    apt-get -y install ${OPENSIPS_EXTRA_MODULES} \
-    ;fi
+RUN apt-get install --no-install-recommends -y build-essential \
+    bison flex m4 pkg-config libncurses5-dev \
+    libssl-dev default-libmysqlclient-dev libmicrohttpd-dev libcurl4-openssl-dev uuid-dev \
+    libpcre3-dev libconfuse-dev libxml2-dev libhiredis-dev
 
-RUN rm -rf /var/lib/apt/lists/*
-RUN sed -i "s/stderror_enabled=no/stderror_enabled=yes/g" /etc/opensips/opensips.cfg && \
-    sed -i "s/syslog_enabled=yes/syslog_enabled=no/g" /etc/opensips/opensips.cfg
+RUN cd opensips-${OPENSIPS_VERSION} && \
+    make include_modules="${BUILD_MOD}" modules
 
-EXPOSE 5060/udp
+RUN cd opensips-${OPENSIPS_VERSION} && \
+    make prefix=/usr/local install
 
-ENTRYPOINT ["/usr/sbin/opensips", "-F"]
+RUN which opensips && opensips -h
+RUN ldd /usr/local/sbin/opensips
+
+FROM debian:12-slim
+
+COPY debian.sources /etc/apt/sources.list.d/
+RUN apt-get update && apt-get install --no-install-recommends -y m4 rsyslog \
+    cron logrotate procps net-tools curl apt-transport-https ca-certificates
+
+RUN curl https://apt.opensips.org/opensips-org.gpg -o /usr/share/keyrings/opensips-org.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm cli-nightly" >/etc/apt/sources.list.d/opensips-cli.list && \
+    apt-get -y update && apt-get -y install opensips-cli
+
+COPY --from=builder /usr/local/sbin/opensips /usr/local/sbin/opensips
+COPY --from=builder /usr/local/etc/opensips /usr/local/etc/opensips
+COPY --from=builder /usr/local/lib64/opensips/modules /usr/local/lib64/opensips/modules
+COPY entrypoint.sh /entrypoint.sh
+COPY rsyslog.conf /etc/rsyslog.conf
+COPY logrotate.conf /etc/logrotate.d/opensips
+
+RUN chmod +x /entrypoint.sh && \
+    mkdir /run/opensips && \
+    touch /var/log/opensips.log && \
+    echo "*/10 * * * * /usr/sbin/logrotate /etc/logrotate.d/opensips" >> /var/spool/cron/crontabs/root && \
+    chmod 600 /var/spool/cron/crontabs/root
+
+ENTRYPOINT ["/entrypoint.sh"]
