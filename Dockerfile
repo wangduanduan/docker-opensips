@@ -5,7 +5,6 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-ARG OPENSIPS_URL
 ARG OPENSIPS_VERSION
 ARG BUILD_MOD
 
@@ -13,7 +12,7 @@ COPY debian.sources /etc/apt/sources.list.d/
 
 RUN apt-get update
 
-ADD $OPENSIPS_URL /usr/local/src/
+ADD https://download.opensips.org/opensips-${OPENSIPS_VERSION}.tar.gz /usr/local/src/
 
 RUN cd /usr/local/src/ && tar -zxvf opensips-${OPENSIPS_VERSION}.tar.gz
 WORKDIR /usr/local/src/

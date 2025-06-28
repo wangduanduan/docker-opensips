@@ -12,7 +12,6 @@ BUILD_MOD=db_mysql
 
 build:
 	docker build \
-		--build-arg=OPENSIPS_URL=$(OPENSIPS_URL) \
 		--build-arg=OPENSIPS_VERSION=$(OPENSIPS_VERSION) \
 		--build-arg=BUILD_MOD=$(BUILD_MOD) \
 		--progress=plain \
