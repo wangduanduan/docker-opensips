@@ -35,7 +35,7 @@ FROM debian:12-slim
 
 COPY debian.sources /etc/apt/sources.list.d/
 RUN apt-get update && apt-get install --no-install-recommends -y m4 rsyslog \
-    cron logrotate procps net-tools curl apt-transport-https ca-certificates
+    cron logrotate procps net-tools curl apt-transport-https ca-certificates netbase
 
 RUN curl https://apt.opensips.org/opensips-org.gpg -o /usr/share/keyrings/opensips-org.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm cli-nightly" >/etc/apt/sources.list.d/opensips-cli.list && \
