@@ -12,11 +12,14 @@ COPY debian.sources /etc/apt/sources.list.d/
 
 RUN apt-get update && apt-get install ca-certificates -y --no-install-recommends 
 
-#ADD https://download.opensips.org/opensips-${OPENSIPS_VERSION}.tar.gz /usr/local/src/
 ADD static/opensips-${OPENSIPS_VERSION}.tar.gz /usr/local/src/
 
-#RUN cd /usr/local/src/ && tar -zxvf opensips-${OPENSIPS_VERSION}.tar.gz
 WORKDIR /usr/local/src/
+
+RUN [ "$(uname -m)" = "aarch64" ] && \
+    apt-get update && apt-get upgrade -y && apt-get --fix-broken install -y && \
+    apt-get install -y libgnutls30=3.7.9-2+deb12u4 --allow-downgrades \
+    || true
 
 RUN apt-get install --no-install-recommends -y build-essential \
     bison flex m4 pkg-config libncurses5-dev \
@@ -31,7 +34,7 @@ RUN cd opensips-${OPENSIPS_VERSION} && \
 
 RUN which opensips && opensips -h
 RUN ldd /usr/local/sbin/opensips
-RUN ls /usr/share/opensips/
+RUN ls -l /usr/local/share/opensips
 
 FROM debian:12-slim
 
@@ -39,9 +42,9 @@ COPY debian.sources /etc/apt/sources.list.d/
 RUN apt-get update && apt-get install --no-install-recommends -y m4 rsyslog \
     cron logrotate procps net-tools curl apt-transport-https ca-certificates netbase
 
-RUN curl https://apt.opensips.org/opensips-org.gpg -o /usr/share/keyrings/opensips-org.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm cli-nightly" >/etc/apt/sources.list.d/opensips-cli.list && \
-    apt-get -y update && apt-get -y install opensips-cli
+#RUN curl https://apt.opensips.org/opensips-org.gpg -o /usr/share/keyrings/opensips-org.gpg && \
+    #echo "deb [signed-by=/usr/share/keyrings/opensips-org.gpg] https://apt.opensips.org bookworm cli-nightly" >/etc/apt/sources.list.d/opensips-cli.list && \
+    #apt-get -y update && apt-get -y install opensips-cli
 
 COPY --from=builder /usr/local/sbin/opensips /usr/local/sbin/opensips
 COPY --from=builder /usr/local/etc/opensips /usr/local/etc/opensips
@@ -55,5 +58,7 @@ RUN chmod +x /entrypoint.sh && \
     touch /var/log/opensips.log && \
     echo "*/10 * * * * /usr/sbin/logrotate /etc/logrotate.d/opensips" >> /var/spool/cron/crontabs/root && \
     chmod 600 /var/spool/cron/crontabs/root
+
+RUN opensips -V
 
 ENTRYPOINT ["/entrypoint.sh"]
