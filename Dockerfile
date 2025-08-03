@@ -10,11 +10,12 @@ ARG BUILD_MOD
 
 COPY debian.sources /etc/apt/sources.list.d/
 
-RUN apt-get update
+RUN apt-get update && apt-get install ca-certificates -y --no-install-recommends 
 
-ADD https://download.opensips.org/opensips-${OPENSIPS_VERSION}.tar.gz /usr/local/src/
+#ADD https://download.opensips.org/opensips-${OPENSIPS_VERSION}.tar.gz /usr/local/src/
+ADD static/opensips-${OPENSIPS_VERSION}.tar.gz /usr/local/src/
 
-RUN cd /usr/local/src/ && tar -zxvf opensips-${OPENSIPS_VERSION}.tar.gz
+#RUN cd /usr/local/src/ && tar -zxvf opensips-${OPENSIPS_VERSION}.tar.gz
 WORKDIR /usr/local/src/
 
 RUN apt-get install --no-install-recommends -y build-essential \
@@ -30,6 +31,7 @@ RUN cd opensips-${OPENSIPS_VERSION} && \
 
 RUN which opensips && opensips -h
 RUN ldd /usr/local/sbin/opensips
+RUN ls /usr/share/opensips/
 
 FROM debian:12-slim
 

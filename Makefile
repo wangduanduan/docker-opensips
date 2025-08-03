@@ -10,8 +10,10 @@ IMAGE_FULL_NAME=wangduanduan/opensips:$(OPENSIPS_VERSION)
 # 额外需要构建的模块
 BUILD_MOD=db_mysql
 
+OCI=podman
+
 build:
-	docker build \
+	$(OCI) build \
 		--build-arg=OPENSIPS_VERSION=$(OPENSIPS_VERSION) \
 		--build-arg=BUILD_MOD=$(BUILD_MOD) \
 		--progress=plain \
@@ -19,8 +21,8 @@ build:
 		.
 
 run:
-	-docker rm -f ops
-	docker run -d --name ops \
+	-$(OCI) rm -f ops
+	$(OCI) run -d --name ops \
 	-v $$PWD/opensips:/usr/local/etc/opensips \
 	-v $$PWD/log:/var/log \
 	$(IMAGE_FULL_NAME) -m 1024 -M 64
